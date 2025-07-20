@@ -1,248 +1,285 @@
-# Nuvora - Social Video Chat App
+# Nuvora - Real-time Social Rooms App
 
-Nuvora is a social video chat application similar to Houseparty, built with SwiftUI and Supabase. Connect with friends in virtual rooms, share moods, and enjoy real-time presence features.
+Nuvora is a modern iOS SwiftUI application that enables users to create and join real-time social rooms with different moods and live presence tracking. Built with Supabase for backend services and real-time functionality.
 
-## 🚀 Recent Comprehensive Fixes
+## Features
 
-This version includes major fixes and improvements to make the app production-ready:
+### 🔐 Authentication
+- Phone number + SMS OTP authentication
+- Secure session management
+- Auto-refresh tokens
+- Keychain integration for secure storage
 
-### ✅ Critical Issues Fixed
+### 🏠 Room Management
+- Create custom rooms with different moods
+- Join/leave rooms with real-time participant tracking
+- Room search and filtering capabilities
+- Mood-based room categorization
+- Private and public room support
 
-1. **Fixed Hardcoded Credentials**
-   - Removed hardcoded Supabase credentials from source code
-   - Added proper configuration via Info.plist
-   - Implemented safe credential loading with error handling
+### 🎭 Room Moods
+- **😌 Chill**: Relax and unwind
+- **🔥 Hype**: High energy vibes
+- **📚 Study**: Focus and productivity
+- **🎤 Karaoke**: Sing and have fun
 
-2. **Fixed Broken Navigation Flow**
-   - Implemented proper authentication state management
-   - Fixed stuck login screen issue
-   - Added smooth transitions between auth states
-   - Users now properly navigate to main app after login
+### 🌐 Real-time Features
+- Live presence tracking
+- Real-time participant updates
+- Mood changes in real-time
+- Custom room events
+- WebSocket-based communication
 
-3. **Completed Real-time Features**
-   - Fully implemented LivePresenceManager with Supabase Realtime V2
-   - Added real-time room presence functionality
-   - Implemented mood tracking and updates
-   - Added proper connection state management
+### 🎨 Modern UI/UX
+- SwiftUI-based interface
+- Responsive design for all iOS devices
+- Dark/Light mode support
+- Smooth animations and transitions
+- Confetti effects for celebrations
 
-4. **Fixed Force Unwrapping Issues**
-   - Replaced all force unwrapping with safe optional handling
-   - Added proper error handling for URL creation
-   - Implemented graceful failure handling throughout the app
+## Architecture
 
-### ✅ High Priority Issues Fixed
+### 📱 App Structure
+```
+Nuvora/
+├── App/
+│   └── NuvoraApp.swift          # App entry point
+├── Models/
+│   └── Room.swift               # Room data models
+├── Views/
+│   ├── Auth/                    # Authentication views
+│   │   ├── LoginView.swift
+│   │   ├── PhoneInputView.swift
+│   │   └── OTPVerificationView.swift
+│   └── CreateRoomDialog.swift   # Room creation UI
+├── ViewModels/
+│   ├── AuthViewModel.swift      # Authentication logic
+│   └── RoomViewModel.swift      # Room management logic
+├── Services/
+│   ├── SupabaseManager.swift    # Supabase client management
+│   ├── AuthService.swift        # Authentication service
+│   ├── RealtimeService.swift    # Real-time functionality
+│   ├── RoomService.swift        # Room CRUD operations
+│   └── LivePresenceManager.swift # Presence tracking
+├── Extensions/
+│   └── String+Extensions.swift  # Utility extensions
+└── Resources/
+    └── Assets.xcassets          # App assets
+```
 
-5. **Architecture Cleanup**
-   - Removed duplicate app entry points
-   - Fixed empty NuvoraPartyApp.swift file
-   - Ensured single, proper app entry point with NuvoraApp.swift
+### 🏗️ Service Architecture
+- **SupabaseManager**: Central Supabase client management
+- **AuthService**: Handles authentication flow and session management
+- **RoomService**: Manages room CRUD operations with real-time updates
+- **RealtimeService**: WebSocket connections and real-time events
+- **LivePresenceManager**: User presence tracking in rooms
 
-6. **Memory Leak Prevention**
-   - Added proper task cancellation in all ViewModels
-   - Implemented proper cleanup in deinit methods
-   - Fixed infinite tasks without cancellation
-   - Added @MainActor for thread safety
-
-7. **Improved Error Handling**
-   - Replaced generic error messages with specific ones
-   - Added retry mechanisms where appropriate
-   - Implemented proper loading states
-   - Added user-friendly error alerts
-
-8. **State Management Improvements**
-   - Replaced manual main queue dispatching with @MainActor
-   - Used modern Swift concurrency patterns
-   - Fixed state management inconsistencies
-   - Improved data flow throughout the app
-
-## 🛠 Setup Instructions
+## Setup Instructions
 
 ### Prerequisites
-
-- Xcode 15.0 or later
-- iOS 16.0 or later
-- Swift 5.9 or later
+- Xcode 15.0+
+- iOS 17.0+
+- Swift 5.9+
 - Supabase account
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/Suspectsaved21/Nuvora-.git
-cd Nuvora-
+cd Nuvora
 ```
 
-### 2. Supabase Configuration
+### 2. Configure Supabase
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Copy the example configuration:
+   ```bash
+   cp Config.example.xcconfig Config.xcconfig
+   ```
+3. Update `Config.xcconfig` with your Supabase credentials:
+   ```
+   SUPABASE_URL = https://your-project-id.supabase.co
+   SUPABASE_ANON_KEY = your-supabase-anon-key
+   ```
 
-The app is pre-configured with the following Supabase settings in `Info.plist`:
-
-- **Project URL**: `https://nuyamkzxwnbmkhdvidwi.supabase.co`
-- **Anon Key**: Already configured (replace with your actual key)
-- **Twilio Verify Service SID**: `VA449ab0d4938f08da0bab897e6885c163`
-
-#### Required Supabase Tables
-
+### 3. Database Setup
 Create the following table in your Supabase database:
 
 ```sql
--- Rooms table
+-- Create rooms table
 CREATE TABLE rooms (
-    id TEXT PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
-    participants INTEGER DEFAULT 1,
-    max_participants INTEGER DEFAULT 8,
-    is_private BOOLEAN DEFAULT FALSE,
-    mood TEXT DEFAULT 'chill',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    participants INTEGER DEFAULT 0,
+    max_participants INTEGER DEFAULT 10,
+    is_private BOOLEAN DEFAULT false,
+    mood TEXT NOT NULL,
+    description TEXT,
+    tags TEXT[],
+    created_by UUID REFERENCES auth.users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Enable Row Level Security
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 
--- Allow all operations for authenticated users
-CREATE POLICY "Allow all operations for authenticated users" ON rooms
-    FOR ALL USING (auth.role() = 'authenticated');
+-- Create policies
+CREATE POLICY "Anyone can view public rooms" ON rooms
+    FOR SELECT USING (NOT is_private);
+
+CREATE POLICY "Users can create rooms" ON rooms
+    FOR INSERT WITH CHECK (auth.uid() = created_by);
+
+CREATE POLICY "Users can update their own rooms" ON rooms
+    FOR UPDATE USING (auth.uid() = created_by);
+
+CREATE POLICY "Users can delete their own rooms" ON rooms
+    FOR DELETE USING (auth.uid() = created_by);
+
+-- Enable real-time
+ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
 ```
 
-#### Enable Realtime
-
-Enable realtime for the rooms table in your Supabase dashboard:
-
-1. Go to Database → Replication
-2. Add the `rooms` table to realtime
-
-### 3. Phone Authentication Setup
-
-The app uses Supabase Auth with phone/SMS verification:
-
-1. In your Supabase dashboard, go to Authentication → Settings
-2. Enable Phone authentication
-3. Configure your Twilio credentials (if using Twilio)
-4. The app is already configured with the Twilio Verify Service SID
-
-### 4. Install Dependencies
-
-The app uses Swift Package Manager. Dependencies should be automatically resolved when you open the project in Xcode.
-
-Required packages:
-- `supabase-swift` (already configured)
+### 4. Authentication Setup
+1. Enable Phone authentication in Supabase Dashboard
+2. Configure your SMS provider (Twilio recommended)
+3. Update phone authentication settings
 
 ### 5. Build and Run
-
 1. Open `Nuvora.xcodeproj` in Xcode
-2. Select your target device or simulator
+2. Select your target device/simulator
 3. Build and run the project (⌘+R)
 
-## 📱 Features
-
-### Authentication
-- Phone number verification via SMS
-- Secure session management
-- Automatic auth state persistence
-
-### Room Management
-- Create public/private rooms
-- Set room capacity and mood
-- Real-time participant tracking
-- Search and filter rooms
-
-### Real-time Features
-- Live presence tracking
-- Mood updates in real-time
-- Connection status monitoring
-- Automatic reconnection
-
-### User Experience
-- Smooth animations and transitions
-- Confetti celebrations
-- Ambient sound effects
-- Responsive design
-
-## 🏗 Architecture
-
-### Key Components
-
-- **NuvoraApp.swift**: Main app entry point with auth state management
-- **SupabaseManager.swift**: Centralized Supabase client management
-- **LivePresenceManager.swift**: Real-time presence and mood tracking
-- **AuthViewModel.swift**: Authentication state and logic
-- **RoomViewModel.swift**: Room management and operations
-
-### Design Patterns
-
-- MVVM architecture
-- Reactive programming with Combine
-- Modern Swift concurrency (async/await)
-- Proper memory management
-- Error handling best practices
-
-## 🧪 Testing
-
-### Manual Testing Checklist
-
-1. **Authentication Flow**
-   - [ ] Enter phone number and receive SMS
-   - [ ] Verify code and navigate to home screen
-   - [ ] Sign out and return to login
-
-2. **Room Management**
-   - [ ] Create a new room with different moods
-   - [ ] View room list and search functionality
-   - [ ] Join existing rooms
-
-3. **Real-time Features**
-   - [ ] Join room and see presence updates
-   - [ ] Change mood and verify real-time updates
-   - [ ] Leave room and verify cleanup
-
-4. **Error Handling**
-   - [ ] Test with invalid phone numbers
-   - [ ] Test with network disconnection
-   - [ ] Test with invalid room data
-
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
+The app uses `Info.plist` for configuration. Key variables:
 
-The app reads configuration from `Info.plist`. For production deployment, consider using Xcode build configurations:
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `TWILIO_ACCOUNT_SID`: Twilio account SID (optional)
+- `TWILIO_AUTH_TOKEN`: Twilio auth token (optional)
+- `TWILIO_PHONE_NUMBER`: Twilio phone number (optional)
 
-1. Create build settings for different environments
-2. Use `$(SUPABASE_URL)` and `$(SUPABASE_ANON_KEY)` in Info.plist
-3. Set actual values in Xcode build settings
+### Security
+- All sensitive configuration is stored in `Config.xcconfig` (gitignored)
+- API keys are loaded from `Info.plist` at runtime
+- No hardcoded credentials in source code
+- Secure keychain storage for user sessions
 
-### Security Considerations
+## Development
 
-- Never commit real API keys to version control
-- Use environment-specific configurations
-- Implement proper Row Level Security in Supabase
-- Validate all user inputs
+### Package Dependencies
+- **Supabase Swift SDK 2.8.0+**: Backend services
+  - Auth: Authentication
+  - Realtime: WebSocket connections
+  - PostgREST: Database operations
+  - Storage: File storage (if needed)
+  - Functions: Edge functions (if needed)
 
-## 🐛 Known Issues
+### Key Features Implementation
 
-- None currently identified after comprehensive fixes
+#### Authentication Flow
+1. User enters phone number
+2. OTP sent via SMS
+3. User verifies OTP
+4. Session created and stored securely
+5. Auto-refresh on app launch
 
-## 🤝 Contributing
+#### Room Management
+1. Create room with mood and settings
+2. Real-time participant tracking
+3. Live presence updates
+4. Mood changes broadcast to all participants
+5. Automatic cleanup on user disconnect
+
+#### Real-time Features
+- WebSocket connection management
+- Presence tracking with heartbeat
+- Custom event broadcasting
+- Connection recovery and retry logic
+
+### Testing
+```bash
+# Run tests
+xcodebuild test -scheme Nuvora -destination 'platform=iOS Simulator,name=iPhone 15'
+
+# Build for device
+xcodebuild -scheme Nuvora -destination 'generic/platform=iOS' build
+```
+
+## Deployment
+
+### App Store Preparation
+1. Update version numbers in `Info.plist`
+2. Configure signing certificates
+3. Build for release
+4. Upload to App Store Connect
+
+### Backend Deployment
+- Supabase handles backend infrastructure
+- Configure production environment variables
+- Set up monitoring and analytics
+
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
+### Code Style
+- Follow Swift naming conventions
+- Use SwiftUI best practices
+- Document public APIs
+- Write meaningful commit messages
 
-This project is licensed under the MIT License.
+## Troubleshooting
 
-## 🆘 Support
+### Common Issues
 
-If you encounter any issues:
+#### Build Errors
+- Ensure Xcode 15.0+ is installed
+- Clean build folder (⌘+Shift+K)
+- Reset package cache
+- Check Swift Package Manager dependencies
 
-1. Check the console logs for detailed error messages
-2. Verify your Supabase configuration
-3. Ensure all required tables are created
-4. Check network connectivity
+#### Authentication Issues
+- Verify Supabase configuration
+- Check phone number format (E.164)
+- Ensure SMS provider is configured
+- Check network connectivity
 
-For additional support, please create an issue in the GitHub repository.
+#### Real-time Connection Issues
+- Verify WebSocket connectivity
+- Check Supabase real-time settings
+- Ensure proper authentication
+- Monitor connection logs
+
+### Debug Logging
+Enable debug logging by setting:
+```swift
+// In Config.swift
+static let isDebug = true
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions:
+- Create an issue on GitHub
+- Check the documentation
+- Review Supabase documentation
+
+## Acknowledgments
+
+- [Supabase](https://supabase.com) for backend services
+- [SwiftUI](https://developer.apple.com/xcode/swiftui/) for the UI framework
+- The iOS development community
 
 ---
 
-**Note**: This app has been thoroughly tested and all critical issues have been resolved. The codebase is now production-ready with proper error handling, memory management, and real-time features.
+**Built with ❤️ using SwiftUI and Supabase**
