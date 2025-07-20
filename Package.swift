@@ -6,24 +6,22 @@ import PackageDescription
 let package = Package(
     name: "Nuvora",
     platforms: [
-        .iOS(.v17)
+        .iOS(.v16),
+        .macOS(.v13)
     ],
     products: [
         .library(
             name: "Nuvora",
-            targets: ["Nuvora"]
-        ),
+            targets: ["Nuvora"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.8.0"),
-        .package(url: "https://github.com/stasel/WebRTC.git", from: "118.0.0"),
+        .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.30.0")
     ],
     targets: [
         .target(
             name: "Nuvora",
             dependencies: [
-                .product(name: "Supabase", package: "supabase-swift"),
-                .product(name: "WebRTC", package: "WebRTC"),
+                .product(name: "Supabase", package: "supabase-swift")
             ]
         ),
         .testTarget(
