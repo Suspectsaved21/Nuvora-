@@ -1,189 +1,270 @@
-# 🚀 Nuvora iOS App - Setup & Testing Instructions
+# Nuvora Setup Instructions
 
-## 📱 Overview
-Nuvora is a Houseparty-like social iOS app built with SwiftUI, featuring real-time rooms, SMS phone authentication, and live presence management. The app uses Supabase as the backend and supports Twilio for SMS authentication.
+Detailed setup guide for configuring the Nuvora iOS app with Supabase.
 
-## ✅ Repository Status
-- ✅ **Main branch ready** - All fixes merged successfully
-- ✅ **Xcode project configured** - Ready for immediate development
-- ✅ **Production-ready code** - All critical bugs fixed
-- ✅ **SMS Authentication** - Complete phone auth system
-- ✅ **Environment configuration** - Centralized config management
+## Prerequisites
 
-## 🛠 Prerequisites
-- **Xcode 15.0+** (iOS 15.0+ deployment target)
-- **macOS Monterey 12.0+**
-- **Active Apple Developer Account** (for device testing)
-- **Supabase Project** (for backend services)
-- **Twilio Account** (for SMS authentication)
+- Xcode 15.0 or later
+- iOS 16.0+ deployment target
+- Active Supabase account
+- Basic knowledge of iOS development
 
-## 📥 Quick Start Guide
+## Step 1: Supabase Project Setup
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Suspectsaved21/Nuvora-.git
-cd Nuvora-
+### 1.1 Create a New Supabase Project
+1. Go to [supabase.com](https://supabase.com)
+2. Sign in to your account
+3. Click "New Project"
+4. Choose your organization
+5. Enter project name: "Nuvora"
+6. Generate a secure database password
+7. Select your preferred region
+8. Click "Create new project"
+
+### 1.2 Enable Realtime
+1. In your Supabase dashboard, go to "Settings" > "API"
+2. Scroll down to "Realtime" section
+3. Ensure Realtime is enabled
+4. Note your project URL and anon key
+
+## Step 2: Database Configuration
+
+### 2.1 Create Required Tables
+Run the following SQL in your Supabase SQL editor:
+
+```sql
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Chat messages table
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    content TEXT NOT NULL,
+    sender_id UUID NOT NULL,
+    room_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User profiles table (optional, for extended user info)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID REFERENCES auth.users(id) PRIMARY KEY,
+    email TEXT,
+    display_name TEXT,
+    avatar_url TEXT,
+    status TEXT DEFAULT 'offline',
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Video call rooms table (optional, for persistent rooms)
+CREATE TABLE IF NOT EXISTS video_rooms (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_by UUID REFERENCES auth.users(id),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
 
-### 2. Open in Xcode
-```bash
-# Open the Xcode project
-open Nuvora/Nuvora.xcodeproj
+### 2.2 Enable Realtime for Tables
+```sql
+-- Enable realtime for chat messages
+ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
+
+-- Enable realtime for user profiles (if created)
+ALTER PUBLICATION supabase_realtime ADD TABLE user_profiles;
+
+-- Enable realtime for video rooms (if created)
+ALTER PUBLICATION supabase_realtime ADD TABLE video_rooms;
 ```
 
-### 3. Configure Environment Variables
-Edit `Nuvora/Nuvora/Info.plist` and replace the placeholder values:
+### 2.3 Set Up Row Level Security (RLS)
+```sql
+-- Enable RLS on tables
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE video_rooms ENABLE ROW LEVEL SECURITY;
+
+-- Chat messages policies
+CREATE POLICY "Users can read all chat messages" ON chat_messages
+    FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their own messages" ON chat_messages
+    FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+-- User profiles policies
+CREATE POLICY "Users can read all profiles" ON user_profiles
+    FOR SELECT USING (true);
+
+CREATE POLICY "Users can update their own profile" ON user_profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert their own profile" ON user_profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Video rooms policies
+CREATE POLICY "Users can read all active rooms" ON video_rooms
+    FOR SELECT USING (is_active = true);
+
+CREATE POLICY "Users can create rooms" ON video_rooms
+    FOR INSERT WITH CHECK (auth.uid() = created_by);
+```
+
+## Step 3: iOS Project Configuration
+
+### 3.1 Environment Variables
+Create a `Config.xcconfig` file in your project root:
+
+```
+// Config.xcconfig
+SUPABASE_URL = https://your-project-id.supabase.co
+SUPABASE_ANON_KEY = your-anon-key-here
+```
+
+### 3.2 Update Info.plist
+Add the following to your `Info.plist`:
 
 ```xml
-<!-- Supabase Configuration -->
-<key>SUPABASE_URL</key>
-<string>https://your-actual-project-id.supabase.co</string>
-<key>SUPABASE_ANON_KEY</key>
-<string>your-actual-supabase-anon-key</string>
-
-<!-- Twilio Configuration (for SMS) -->
-<key>TWILIO_ACCOUNT_SID</key>
-<string>your-actual-twilio-account-sid</string>
-<key>TWILIO_AUTH_TOKEN</key>
-<string>your-actual-twilio-auth-token</string>
-<key>TWILIO_PHONE_NUMBER</key>
-<string>your-actual-twilio-phone-number</string>
+<key>NSCameraUsageDescription</key>
+<string>Nuvora needs camera access for video calls</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>Nuvora needs microphone access for video calls</string>
 ```
 
-### 4. Build and Run
-1. **Select Target**: Choose "Nuvora" scheme in Xcode
-2. **Select Simulator**: Pick iPhone 15 Pro or your preferred simulator
-3. **Build**: Press `Cmd + B` to build the project
-4. **Run**: Press `Cmd + R` to run on simulator
+### 3.3 Configure App Transport Security
+If needed, add to `Info.plist`:
 
-## 🔧 Backend Setup
-
-### Supabase Configuration
-1. **Create Supabase Project**: Visit [supabase.com](https://supabase.com)
-2. **Get Project URL**: Found in Project Settings → API
-3. **Get Anon Key**: Found in Project Settings → API
-4. **Database Schema**: The app expects these tables:
-   - `users` - User profiles and authentication
-   - `rooms` - Room information and metadata
-   - `room_participants` - Room membership tracking
-
-### Twilio Configuration
-1. **Create Twilio Account**: Visit [twilio.com](https://twilio.com)
-2. **Get Account SID**: Found in Console Dashboard
-3. **Get Auth Token**: Found in Console Dashboard
-4. **Get Phone Number**: Purchase a phone number for SMS
-
-## 📱 Testing Guide
-
-### SMS Authentication Testing
-1. **Launch App**: Open the app in simulator
-2. **Enter Phone Number**: Use a real phone number you can access
-3. **Receive SMS**: Check your phone for the verification code
-4. **Enter Code**: Input the 6-digit code in the app
-5. **Success**: You should be logged in and see the main interface
-
-### Room Features Testing
-1. **Create Room**: Tap the "+" button to create a new room
-2. **Join Room**: Enter a room code or select from available rooms
-3. **Live Presence**: Verify real-time user presence updates
-4. **Audio Features**: Test ambient sound management
-
-### Simulator Limitations
-- **SMS Testing**: Use a real device for full SMS testing
-- **Camera/Microphone**: Limited functionality in simulator
-- **Push Notifications**: Require physical device
-
-## 🏗 Project Structure
-
-```
-Nuvora/
-├── Nuvora/
-│   ├── App/                    # App configuration and delegates
-│   ├── Views/                  # SwiftUI views and components
-│   │   ├── Auth/              # Authentication screens
-│   │   ├── Components/        # Reusable UI components
-│   │   └── Rooms/             # Room-related views
-│   ├── Services/              # Backend services and managers
-│   │   ├── SupabaseManager.swift
-│   │   ├── KeychainHelper.swift
-│   │   └── LivePresenceManager.swift
-│   ├── Models/                # Data models
-│   ├── ViewModels/            # MVVM view models
-│   ├── Resources/             # Themes and utilities
-│   ├── Config.swift           # Environment configuration
-│   ├── Info.plist            # App configuration and keys
-│   └── NuvoraApp.swift       # Main app entry point
-└── Nuvora.xcodeproj/         # Xcode project files
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <false/>
+    <key>NSExceptionDomains</key>
+    <dict>
+        <key>supabase.co</key>
+        <dict>
+            <key>NSExceptionAllowsInsecureHTTPLoads</key>
+            <false/>
+            <key>NSExceptionMinimumTLSVersion</key>
+            <string>TLSv1.2</string>
+        </dict>
+    </dict>
+</dict>
 ```
 
-## 🔍 Key Features
+## Step 4: Testing the Setup
 
-### ✅ Implemented Features
-- **SMS Phone Authentication** - Complete Twilio integration
-- **Real-time Rooms** - Live room creation and joining
-- **User Presence** - Real-time presence tracking
-- **Ambient Sounds** - Background audio management
-- **Secure Storage** - Keychain integration for tokens
-- **Error Handling** - Comprehensive error management
-- **Memory Management** - Leak-free implementation
+### 4.1 Build and Run
+1. Open `Nuvora.xcodeproj` in Xcode
+2. Select your target device or simulator
+3. Build and run the project (⌘+R)
 
-### 🎯 Core Functionality
-- **Login Flow**: Phone → SMS → Verification → Main App
-- **Room Management**: Create, join, leave rooms
-- **Live Updates**: Real-time participant tracking
-- **Audio System**: Ambient sound controls
-- **Secure Auth**: Token-based authentication with refresh
+### 4.2 Test Authentication
+1. Launch the app
+2. Try signing up with a test email
+3. Check your Supabase Auth dashboard for the new user
 
-## 🚨 Troubleshooting
+### 4.3 Test Realtime Connection
+1. Sign in to the app
+2. Check the connection status indicator
+3. Open Supabase Realtime logs to verify connection
+
+## Step 5: Advanced Configuration
+
+### 5.1 Custom Realtime Channels
+Modify `RealtimeService.swift` to add custom channels:
+
+```swift
+private func setupCustomChannel() async {
+    let customChannel = supabase.realtimeV2.channel("custom-channel")
+    
+    try await customChannel.subscribe()
+    
+    // Listen for custom events
+    for await message in customChannel.broadcastStream(event: "custom-event") {
+        // Handle custom events
+    }
+}
+```
+
+### 5.2 Database Functions
+Create custom database functions for complex operations:
+
+```sql
+-- Function to update user status
+CREATE OR REPLACE FUNCTION update_user_status(user_status TEXT)
+RETURNS void AS $$
+BEGIN
+    UPDATE user_profiles 
+    SET status = user_status, 
+        last_seen = NOW(),
+        updated_at = NOW()
+    WHERE id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+## Troubleshooting
 
 ### Common Issues
 
-#### Build Errors
-```bash
-# Clean build folder
-Product → Clean Build Folder (Cmd + Shift + K)
+1. **"target 'Nuvora' referenced in product 'Nuvora' is empty"**
+   - This has been fixed in the current project configuration
+   - Ensure all Swift files are properly added to the target
 
-# Reset simulator
-Device → Erase All Content and Settings
-```
+2. **Realtime connection fails**
+   - Check your Supabase URL and anon key
+   - Verify Realtime is enabled in your project
+   - Check network connectivity
 
-#### Configuration Issues
-- **Check Info.plist**: Ensure all placeholder values are replaced
-- **Verify Supabase**: Test connection in Supabase dashboard
-- **Validate Twilio**: Check phone number format and account status
+3. **Authentication errors**
+   - Verify your Supabase anon key has the correct permissions
+   - Check if email confirmation is required in Auth settings
 
-#### Runtime Issues
-- **Check Console**: Look for configuration validation messages
-- **Network Issues**: Verify internet connection and API endpoints
-- **Permissions**: Ensure proper iOS permissions are granted
+4. **Build errors**
+   - Clean build folder (⌘+Shift+K)
+   - Reset package caches
+   - Verify iOS deployment target is 16.0+
 
 ### Debug Mode
-The app includes debug logging. Check Xcode console for:
-- `✅ Supabase initialized successfully`
-- `⚠️ Warning: Supabase configuration not set`
-- `❌ Failed to initialize Supabase: Invalid configuration`
+Enable debug logging in `SupabaseManager.swift`:
 
-## 📞 Support
+```swift
+self.supabase = SupabaseClient(
+    supabaseURL: supabaseURL,
+    supabaseKey: supabaseKey,
+    options: SupabaseClientOptions(
+        // ... other options
+        global: SupabaseClientOptions.GlobalOptions(
+            logger: ConsoleLogger(level: .debug)
+        )
+    )
+)
+```
 
-### Getting Help
-1. **Check Console Logs**: Most issues show detailed error messages
-2. **Verify Configuration**: Double-check all API keys and URLs
-3. **Test on Device**: Some features require physical device testing
-4. **Backend Status**: Check Supabase and Twilio service status
+## Security Considerations
 
-### Development Tips
-- **Use Real Device**: For full SMS and camera testing
-- **Check Permissions**: iOS requires explicit permission grants
-- **Monitor Network**: Use Network Link Conditioner for testing
-- **Debug Builds**: Enable debug mode for detailed logging
+1. **Never commit API keys to version control**
+2. **Use environment variables or secure configuration**
+3. **Implement proper RLS policies**
+4. **Validate user input on both client and server**
+5. **Use HTTPS for all communications**
 
-## 🎉 Ready to Go!
+## Next Steps
 
-Your Nuvora iOS app is now ready for development and testing! The repository includes:
-- ✅ Complete SMS authentication system
-- ✅ Production-ready Xcode project
-- ✅ All critical bug fixes applied
-- ✅ Proper iOS app configuration
-- ✅ Environment-based configuration management
+1. **Customize the UI** to match your brand
+2. **Add push notifications** for better user engagement
+3. **Implement file sharing** for enhanced chat experience
+4. **Add video recording** capabilities
+5. **Integrate analytics** for usage insights
 
-Simply clone, configure your API keys, and start testing! 🚀
+## Support
+
+If you encounter issues:
+1. Check the [Supabase documentation](https://supabase.com/docs)
+2. Review the [Supabase Swift SDK](https://github.com/supabase/supabase-swift)
+3. Open an issue in this repository
+4. Join the [Supabase Discord](https://discord.supabase.com) for community support
