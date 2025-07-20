@@ -114,6 +114,29 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# Config files
-Config.xcconfig
+# Security & Environment Files
 .env
+.env.local
+.env.production
+.env.staging
+Config.xcconfig
+Secrets.swift
+*.pem
+*.p12
+*.mobileprovision
+
+# Sensitive Configuration Files
+# Note: Info.plist contains credentials for development only
+# For production, move credentials to Keychain or secure configuration management
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/

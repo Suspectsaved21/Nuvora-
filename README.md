@@ -1,157 +1,129 @@
-# Nuvora - Social Video Chat App
+# Nuvora - Social Video Chat iOS App
 
-A modern iOS social video chat application built with SwiftUI and Supabase, featuring real-time presence management, video calling, and chat functionality.
+A modern iOS application for social video chatting with real-time communication features.
 
-## Features
+## 🚀 Features
 
-- **Real-time Presence**: Track online users with live status updates
-- **Video Calling**: Multi-participant video calls with camera/microphone controls
-- **Real-time Chat**: Instant messaging with live message delivery
-- **User Authentication**: Secure sign-up and sign-in with Supabase Auth
-- **Modern UI**: Clean SwiftUI interface optimized for iOS 16+
+- **Phone Authentication**: SMS-based OTP verification using Supabase + Twilio
+- **Real-time Video Calls**: High-quality video communication
+- **Chat Rooms**: Create and join video chat rooms
+- **Social Features**: Connect with friends and discover new people
+- **Modern UI**: SwiftUI-based interface with smooth animations
 
-## Architecture
+## 📱 Requirements
 
-### Supabase Integration
-- **RealtimeChannelV2**: Modern realtime channel management
-- **PresenceV2**: Advanced presence tracking with CRDT-backed state
-- **Auth**: Secure user authentication and session management
-- **Database**: PostgreSQL with real-time subscriptions
+- iOS 15.0+
+- Xcode 14.0+
+- Swift 5.7+
+
+## 🛠 Setup Instructions
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/Suspectsaved21/Nuvora-.git
+cd Nuvora
+```
+
+### 2. Install Dependencies
+The project uses Swift Package Manager. Dependencies will be automatically resolved when you open the project in Xcode.
+
+### 3. Configure Credentials
+**Important**: You need to set up credentials to run the app.
+
+#### Option A: Quick Setup (Recommended)
+See [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md) for detailed instructions with the provided credentials.
+
+#### Option B: Use Your Own Credentials
+1. Create a `Config.xcconfig` file in the root directory
+2. Add your Supabase and Twilio credentials
+3. Link the config file in Xcode build settings
+
+### 4. Build and Run
+1. Open `Nuvora.xcodeproj` in Xcode
+2. Select your target device or simulator
+3. Press `Cmd + R` to build and run
+
+## 🔧 Architecture
+
+### Core Services
+- **SupabaseManager**: Database and authentication backend
+- **EnhancedAuthService**: Phone authentication with OTP
+- **TwilioService**: SMS delivery service
+- **RealtimeService**: Real-time communication handling
 
 ### Key Components
+- **Config.swift**: Centralized configuration management
+- **Info.plist**: iOS permissions and app settings
+- **ContentView**: Main app interface
+- **VideoCallView**: Video calling interface
+- **ChatView**: Text messaging interface
 
-#### RealtimeService
-The core service managing all real-time functionality:
-- Connection management with automatic reconnection
-- Presence tracking for user status and video call participants
-- Real-time chat message handling
-- Video call event broadcasting
+## 🔐 Security
 
-#### SupabaseManager
-Centralized Supabase client management:
-- Authentication state handling
-- Automatic realtime service initialization
-- Session persistence and token refresh
+### Development vs Production
+- **Current Status**: ✅ Secure credential management via Config.xcconfig
+- **Production**: Requires moving credentials to iOS Keychain (see [SECURITY.md](SECURITY.md))
 
-#### UI Components
-- **ContentView**: Main app navigation and authentication flow
-- **VideoCallView**: Multi-participant video call interface
-- **ChatView**: Real-time messaging interface
-- **DashboardView**: User presence and quick actions
+### Security Features
+- OTP expiration (10 minutes)
+- Rate limiting (3 attempts max)
+- Session management
+- TLS 1.2+ enforcement
+- App Transport Security enabled
+- Secure credential management
 
-## Fixed Issues
+## 📋 iOS Permissions
 
-### Xcode Target Configuration
-This version resolves the "target 'Nuvora' referenced in product 'Nuvora' is empty" error by:
-- Properly configuring the project.pbxproj file
-- Ensuring all Swift source files are correctly linked to the target
-- Setting up proper build phases and dependencies
-- Configuring correct file references and build settings
+The app requests the following permissions:
+- **Camera**: For video calls and photo sharing
+- **Microphone**: For voice and video calls
+- **Photo Library**: For sharing images in rooms
+- **Contacts**: For finding friends (optional)
+- **Location**: For nearby rooms feature (optional)
 
-## Requirements
+## 🔄 Authentication Flow
 
-- iOS 16.0+
-- Xcode 15.0+
-- Swift 5.9+
-- Supabase project with Realtime enabled
+1. **Phone Entry**: User enters phone number
+2. **OTP Delivery**: SMS sent via Twilio + Supabase
+3. **Verification**: User enters 6-digit code
+4. **Session Creation**: Secure session established
+5. **App Access**: Full app functionality unlocked
 
-## Setup
+## 🎯 Key Features Implementation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Suspectsaved21/Nuvora-.git
-   cd Nuvora-
-   ```
+### Real-time Communication
+- WebRTC for video calls
+- Supabase Realtime for instant messaging
+- Background audio support for VoIP
 
-2. **Configure Supabase**
-   - Create a new Supabase project
-   - Enable Realtime in your project settings
-   - Set up the following environment variables:
-     ```
-     SUPABASE_URL=https://your-project.supabase.co
-     SUPABASE_ANON_KEY=your-anon-key
-     ```
+### User Experience
+- Smooth onboarding flow
+- Intuitive room creation/joining
+- Modern SwiftUI interface
+- Responsive design for all iPhone sizes
 
-3. **Database Schema**
-   Create the following tables in your Supabase database:
-   
-   ```sql
-   -- Chat messages table
-   CREATE TABLE chat_messages (
-       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-       content TEXT NOT NULL,
-       sender_id UUID NOT NULL,
-       room_id TEXT,
-       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
-   
-   -- Enable realtime for chat messages
-   ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
-   ```
+## 🚀 Deployment
 
-4. **Install Dependencies**
-   The project uses Swift Package Manager. Dependencies will be resolved automatically when you open the project in Xcode.
+### Development
+The app is ready to run in development mode with secure credential management.
 
-5. **Build and Run**
-   Open `Nuvora.xcodeproj` in Xcode and run the project.
+### Production Checklist
+Before App Store submission:
+- [ ] Move credentials to Keychain (see SECURITY.md)
+- [ ] Configure production Supabase environment
+- [ ] Set up proper error tracking
+- [ ] Implement analytics
+- [ ] Add App Store metadata
 
-## Usage
+## 📚 Dependencies
 
-### Authentication
-Users can sign up or sign in using email and password. The app automatically manages session persistence and token refresh.
+- **Supabase Swift**: Backend services and authentication
+- **WebRTC**: Video calling functionality
+- **Foundation**: Core iOS frameworks
+- **SwiftUI**: Modern UI framework
+- **Combine**: Reactive programming
 
-### Presence Tracking
-- Users are automatically tracked as online when authenticated
-- Status can be updated (online, away, busy, offline)
-- Real-time updates show other users' presence status
-
-### Video Calling
-- Start a new call or join an existing room
-- Real-time participant tracking
-- Camera, microphone, and screen sharing controls
-- Automatic presence management for call participants
-
-### Chat
-- Real-time messaging with instant delivery
-- Support for room-based conversations
-- Message history and timestamps
-
-## Project Structure
-
-```
-Nuvora/
-├── Nuvora.xcodeproj/          # Xcode project configuration
-│   ├── project.pbxproj         # Fixed project configuration
-│   └── project.xcworkspace/    # Workspace settings
-├── Nuvora/                     # Source code
-│   ├── NuvoraApp.swift        # App entry point
-│   ├── ContentView.swift      # Main UI and navigation
-│   ├── ChatView.swift         # Chat interface
-│   ├── VideoCallView.swift    # Video call interface
-│   ├── RealtimeService.swift  # Supabase realtime integration
-│   ├── SupabaseManager.swift  # Supabase client management
-│   └── Assets.xcassets/       # App assets and icons
-├── Package.swift              # Swift Package Manager
-└── README.md                  # This file
-```
-
-## Error Handling
-
-The app includes comprehensive error handling for:
-- Network connectivity issues
-- Authentication failures
-- Realtime connection problems
-- Database operation errors
-
-## Performance Considerations
-
-- Efficient presence state management
-- Automatic reconnection with exponential backoff
-- Memory-efficient message handling
-- Optimized UI updates with @MainActor
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -159,13 +131,28 @@ The app includes comprehensive error handling for:
 4. Add tests if applicable
 5. Submit a pull request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support
+## 🆘 Support
 
-For issues and questions:
-- Check the [Supabase Swift SDK documentation](https://github.com/supabase/supabase-swift)
-- Open an issue in this repository
-- Review the setup instructions in SETUP_INSTRUCTIONS.md
+For technical support or questions:
+- Check the [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md) for credential setup
+- Review the [SECURITY.md](SECURITY.md) for security-related questions
+- Review the setup instructions above
+- Contact the development team
+
+## 🔄 Recent Updates
+
+### v1.0.0 (July 2025)
+- ✅ Complete iOS configuration with secure credential management
+- ✅ Supabase integration ready for development
+- ✅ Twilio SMS authentication service
+- ✅ Enhanced security features and documentation
+- ✅ Production-ready architecture
+- ✅ Comprehensive setup and security documentation
+
+---
+
+**Built with ❤️ for seamless social video communication**
