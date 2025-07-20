@@ -24,11 +24,21 @@ Nuvora is a modern iOS SwiftUI application that enables users to create and join
 - **🎤 Karaoke**: Sing and have fun
 
 ### 🌐 Real-time Features
-- Live presence tracking
-- Real-time participant updates
-- Mood changes in real-time
-- Custom room events
-- WebSocket-based communication
+- **Live Presence Tracking**: See who's online in real-time
+- **Real-time Participant Updates**: Instant room participant changes
+- **Mood Changes**: Live mood updates across all participants
+- **Custom Room Events**: Send and receive custom events
+- **WebSocket Communication**: Reliable real-time messaging
+- **Connection Recovery**: Automatic reconnection on network issues
+- **Presence Heartbeat**: Maintain active status with periodic updates
+
+### ✨ Enhanced Presence Features
+- **Mood Reactions**: Send emoji reactions to other users
+- **Typing Indicators**: See when users are typing
+- **Presence Analytics**: Track user count and mood distribution
+- **Connection Status**: Monitor real-time connection health
+- **Auto-reconnection**: Seamless recovery from connection drops
+- **Thread Safety**: @MainActor integration for UI updates
 
 ### 🎨 Modern UI/UX
 - SwiftUI-based interface
@@ -36,6 +46,9 @@ Nuvora is a modern iOS SwiftUI application that enables users to create and join
 - Dark/Light mode support
 - Smooth animations and transitions
 - Confetti effects for celebrations
+- Real-time presence indicators
+- Typing status displays
+- Mood reaction animations
 
 ## Architecture
 
@@ -60,7 +73,7 @@ Nuvora/
 │   ├── AuthService.swift        # Authentication service
 │   ├── RealtimeService.swift    # Real-time functionality
 │   ├── RoomService.swift        # Room CRUD operations
-│   └── LivePresenceManager.swift # Presence tracking
+│   └── LivePresenceManager.swift # Enhanced presence tracking
 ├── Extensions/
 │   └── String+Extensions.swift  # Utility extensions
 └── Resources/
@@ -72,7 +85,41 @@ Nuvora/
 - **AuthService**: Handles authentication flow and session management
 - **RoomService**: Manages room CRUD operations with real-time updates
 - **RealtimeService**: WebSocket connections and real-time events
-- **LivePresenceManager**: User presence tracking in rooms
+- **LivePresenceManager**: Enhanced user presence tracking with advanced features
+
+### 🔄 LivePresenceManager Features
+The enhanced LivePresenceManager provides comprehensive real-time presence tracking:
+
+#### Core Presence Features
+- **Real-time User Tracking**: Monitor who's online in each room
+- **Mood Synchronization**: Live mood updates across all participants
+- **Connection Management**: Automatic reconnection and error handling
+- **Presence Heartbeat**: Periodic updates to maintain active status
+
+#### Advanced Features
+- **Mood Reactions**: Send emoji reactions to other users in the room
+- **Typing Indicators**: Real-time typing status for enhanced communication
+- **Presence Analytics**: Get user counts and mood distribution
+- **Connection Recovery**: Seamless reconnection after network issues
+- **Thread Safety**: @MainActor integration for safe UI updates
+
+#### Usage Example
+```swift
+// Join a room with presence tracking
+await livePresenceManager.join(roomID: "room-123", mood: .chill)
+
+// Send a mood reaction
+await livePresenceManager.sendMoodReaction("👍")
+
+// Listen to typing indicators
+livePresenceManager.listenToTypingIndicators { userID, isTyping in
+    // Update UI with typing status
+}
+
+// Get current presence data
+let users = livePresenceManager.getCurrentLiveUsers()
+let count = livePresenceManager.getPresenceCount()
+```
 
 ## Setup Instructions
 
@@ -192,11 +239,37 @@ The app uses `Info.plist` for configuration. Key variables:
 4. Mood changes broadcast to all participants
 5. Automatic cleanup on user disconnect
 
-#### Real-time Features
-- WebSocket connection management
-- Presence tracking with heartbeat
-- Custom event broadcasting
-- Connection recovery and retry logic
+#### Enhanced Real-time Features
+- **WebSocket Connection Management**: Robust connection handling with retry logic
+- **Presence Tracking with Heartbeat**: Periodic updates to maintain active status
+- **Custom Event Broadcasting**: Send mood reactions and typing indicators
+- **Connection Recovery**: Automatic reconnection on network issues
+- **Thread-Safe Updates**: @MainActor integration for UI consistency
+
+#### LivePresenceManager Integration
+The LivePresenceManager is fully integrated into the RoomViewModel:
+
+```swift
+// In RoomViewModel
+private var livePresenceManager: LivePresenceManager {
+    LivePresenceManager.shared
+}
+
+// Presence bindings
+livePresenceManager.$liveUsers
+    .receive(on: DispatchQueue.main)
+    .assign(to: \.liveUsers, on: self)
+    .store(in: &cancellables)
+
+// Advanced features
+func sendMoodReaction(_ reaction: String) async {
+    await livePresenceManager.sendMoodReaction(reaction)
+}
+
+func setTyping(_ isTyping: Bool) async {
+    await livePresenceManager.sendTypingIndicator(isTyping: isTyping)
+}
+```
 
 ### Testing
 ```bash
@@ -233,6 +306,7 @@ xcodebuild -scheme Nuvora -destination 'generic/platform=iOS' build
 - Use SwiftUI best practices
 - Document public APIs
 - Write meaningful commit messages
+- Use @MainActor for UI-related classes
 
 ## Troubleshooting
 
@@ -255,12 +329,28 @@ xcodebuild -scheme Nuvora -destination 'generic/platform=iOS' build
 - Check Supabase real-time settings
 - Ensure proper authentication
 - Monitor connection logs
+- Check LivePresenceManager connection status
+
+#### Presence Tracking Issues
+- Verify real-time subscriptions are enabled
+- Check presence heartbeat functionality
+- Monitor connection recovery logs
+- Ensure proper room channel setup
 
 ### Debug Logging
 Enable debug logging by setting:
 ```swift
 // In Config.swift
 static let isDebug = true
+```
+
+### LivePresenceManager Debugging
+Monitor presence status:
+```swift
+let status = livePresenceManager.getConnectionStatus()
+print("Connected: \(status.isConnected)")
+print("Error: \(status.error ?? "None")")
+print("Room: \(status.roomID ?? "None")")
 ```
 
 ## License
