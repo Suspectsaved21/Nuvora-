@@ -12,10 +12,23 @@ class SupabaseManager {
 
     func initialize() {
         guard client == nil else { return } // Prevent double initialization
+        
+        // Validate configuration
+        guard Config.validateConfiguration() else {
+            print("❌ Failed to initialize Supabase: Invalid configuration")
+            return
+        }
+        
+        guard let url = URL(string: Config.supabaseURL) else {
+            print("❌ Failed to initialize Supabase: Invalid URL")
+            return
+        }
+        
         client = SupabaseClient(
-            supabaseURL: URL(string: "https://your-project-id.supabase.co")!,
-            supabaseKey: "your-anon-or-service-role-key"
+            supabaseURL: url,
+            supabaseKey: Config.supabaseAnonKey
         )
+        
+        print("✅ Supabase initialized successfully")
     }
 }
-
