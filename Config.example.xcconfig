@@ -1,0 +1,17 @@
+// Example configuration file for Nuvora
+// Copy this to Config.xcconfig and fill in your actual values
+
+// Supabase Configuration
+SUPABASE_URL = https://your-project-id.supabase.co
+SUPABASE_ANON_KEY = your-supabase-anon-key
+
+// Twilio Configuration (for SMS)
+TWILIO_ACCOUNT_SID = your-twilio-account-sid
+TWILIO_AUTH_TOKEN = your-twilio-auth-token
+TWILIO_PHONE_NUMBER = your-twilio-phone-number
+
+// App Configuration
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
+PRODUCT_BUNDLE_IDENTIFIER = com.nuvora.app
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

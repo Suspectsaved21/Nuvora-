@@ -2,153 +2,188 @@
 //  AuthViewModel.swift
 //  Nuvora
 //
-//  Updated to include required @Published properties for OTPVerificationView
+//  Enhanced AuthViewModel using the new AuthService with comprehensive error handling
 //
 
 import Foundation
 import Supabase
 import SwiftUI
+import Combine
 
 class AuthViewModel: ObservableObject {
+    // MARK: - Published Properties
     @Published var phoneNumber = ""
-    @Published var phoneNumberE164: String? // Added for OTPVerificationView compatibility
+    @Published var phoneNumberE164: String?
     @Published var verificationCode = ""
-    @Published var isVerifying = false
+    @Published var isLoading = false
     @Published var isAuthenticated = false
     @Published var hasSentCode = false
-    @Published var showError: Bool = false // Added for OTPVerificationView compatibility
+    @Published var showError: Bool = false
     @Published var errorMessage: String?
-
-    // Make client a computed property that's always up to date and optional
-    private var client: SupabaseClient? {
-        SupabaseManager.shared.client
+    @Published var currentUser: User?
+    
+    // MARK: - Computed Properties
+    var isPhoneNumberValid: Bool {
+        let cleaned = phoneNumber.numericOnly
+        return cleaned.count == 10 || (cleaned.count == 11 && cleaned.hasPrefix("1"))
     }
-
+    
+    var canSendCode: Bool {
+        return isPhoneNumberValid && !isLoading
+    }
+    
+    var isVerifying: Bool {
+        get { isLoading }
+        set { isLoading = newValue }
+    }
+    
+    // MARK: - Private Properties
+    private var authService: AuthService {
+        AuthService.shared
+    }
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    // MARK: - Initialization
     init() {
+        setupAuthServiceBindings()
         Task {
             await checkAuthState()
         }
     }
-
-    func sendCode() {
-        isVerifying = true
-        errorMessage = nil
-        showError = false
-
-        Task {
-            guard let client = client else {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Supabase client is not available."
-                    self.showError = true
-                    self.isVerifying = false
-                }
-                return
+    
+    private func setupAuthServiceBindings() {
+        // Bind auth service properties to view model
+        authService.$isAuthenticated
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.isAuthenticated, on: self)
+            .store(in: &cancellables)
+        
+        authService.$currentUser
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.currentUser, on: self)
+            .store(in: &cancellables)
+        
+        authService.$isLoading
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.isLoading, on: self)
+            .store(in: &cancellables)
+        
+        authService.$errorMessage
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] errorMessage in
+                self?.errorMessage = errorMessage
+                self?.showError = errorMessage != nil
             }
-            do {
-                // Store the E164 formatted phone number
-                self.phoneNumberE164 = phoneNumber.toE164Format()
-                try await client.auth.signInWithOTP(phone: phoneNumber)
-                DispatchQueue.main.async {
-                    self.hasSentCode = true
-                    self.isVerifying = false
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.errorMessage = error.localizedDescription
-                    self.showError = true
-                    self.isVerifying = false
-                }
-            }
-        }
+            .store(in: &cancellables)
     }
-
-    func verifyCode() {
-        isVerifying = true
-        errorMessage = nil
-        showError = false
-
-        Task {
-            guard let client = client else {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Supabase client is not available."
-                    self.showError = true
-                    self.isVerifying = false
-                }
-                return
+    
+    // MARK: - Authentication Methods
+    
+    /// Send verification code to phone number
+    func sendVerificationCode() async {
+        guard isPhoneNumberValid else {
+            await MainActor.run {
+                self.errorMessage = "Please enter a valid phone number"
+                self.showError = true
             }
-            do {
-                try await client.auth.verifyOTP(phone: phoneNumber, token: verificationCode, type: .sms)
-                DispatchQueue.main.async {
-                    self.isAuthenticated = true
-                    self.isVerifying = false
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.errorMessage = error.localizedDescription
-                    self.showError = true
-                    self.isVerifying = false
-                }
+            return
+        }
+        
+        do {
+            phoneNumberE164 = phoneNumber.toE164Format()
+            try await authService.sendOTP(to: phoneNumber)
+            
+            await MainActor.run {
+                self.hasSentCode = true
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+                self.showError = true
             }
         }
     }
     
-    // Added method for OTPVerificationView compatibility
+    /// Legacy method for compatibility
+    func sendCode() {
+        Task {
+            await sendVerificationCode()
+        }
+    }
+    
+    /// Verify OTP code
+    func verifyCode() async {
+        guard !verificationCode.isEmpty else {
+            await MainActor.run {
+                self.errorMessage = "Please enter the verification code"
+                self.showError = true
+            }
+            return
+        }
+        
+        do {
+            try await authService.verifyOTP(phoneNumber: phoneNumber, code: verificationCode)
+            
+            await MainActor.run {
+                self.verificationCode = ""
+                self.hasSentCode = false
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+                self.showError = true
+            }
+        }
+    }
+    
+    /// Verify OTP with completion handler (for compatibility)
     func verifyOTP(code: String, completion: @escaping (Bool) -> Void) {
         verificationCode = code
-        isVerifying = true
-        errorMessage = nil
-        showError = false
-
+        
         Task {
-            guard let client = client else {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Supabase client is not available."
-                    self.showError = true
-                    self.isVerifying = false
-                    completion(false)
-                }
-                return
-            }
             do {
-                try await client.auth.verifyOTP(phone: phoneNumber, token: code, type: .sms)
-                DispatchQueue.main.async {
-                    self.isAuthenticated = true
-                    self.isVerifying = false
+                try await authService.verifyOTP(phoneNumber: phoneNumber, code: code)
+                await MainActor.run {
                     completion(true)
                 }
             } catch {
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.showError = true
-                    self.isVerifying = false
                     completion(false)
                 }
             }
         }
     }
     
-    // Added method for OTPVerificationView compatibility
+    /// Resend OTP code
     func resendOTP(completion: @escaping (Bool) -> Void) {
-        sendCode()
-        // Since sendCode is async, we'll simulate completion for now
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            completion(true)
+        Task {
+            do {
+                try await authService.sendOTP(to: phoneNumber)
+                await MainActor.run {
+                    completion(true)
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.showError = true
+                    completion(false)
+                }
+            }
         }
     }
-
+    
+    /// Sign out current user
     func signOut() {
         Task {
-            guard let client = client else {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Supabase client is not available."
-                    self.showError = true
-                }
-                return
-            }
             do {
-                try await client.auth.signOut()
-                DispatchQueue.main.async {
-                    self.isAuthenticated = false
+                try await authService.signOut()
+                
+                await MainActor.run {
                     self.phoneNumber = ""
                     self.phoneNumberE164 = nil
                     self.verificationCode = ""
@@ -156,21 +191,33 @@ class AuthViewModel: ObservableObject {
                     self.showError = false
                     self.errorMessage = nil
                 }
+                
             } catch {
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.showError = true
                 }
             }
         }
     }
-
-    private func checkAuthState() async {
-        guard let client = client else { return }
-        if let _ = client.auth.currentUser {
-            DispatchQueue.main.async {
-                self.isAuthenticated = true
-            }
-        }
+    
+    /// Check current authentication state
+    func checkAuthState() async {
+        await authService.checkAuthState()
+    }
+    
+    /// Clear error state
+    func clearError() {
+        errorMessage = nil
+        showError = false
+    }
+    
+    /// Reset form state
+    func resetForm() {
+        phoneNumber = ""
+        phoneNumberE164 = nil
+        verificationCode = ""
+        hasSentCode = false
+        clearError()
     }
 }
