@@ -104,14 +104,14 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
 	<key>SUPABASE_URL</key>
-	<string>https://your-project-id.supabase.co</string>
+	<string>$(SUPABASE_URL)</string>
 	<key>SUPABASE_ANON_KEY</key>
-	<string>your-supabase-anon-key</string>
+	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>TWILIO_ACCOUNT_SID</key>
-	<string>your-twilio-account-sid</string>
+	<string>$(TWILIO_ACCOUNT_SID)</string>
 	<key>TWILIO_AUTH_TOKEN</key>
-	<string>your-twilio-auth-token</string>
-	<key>TWILIO_PHONE_NUMBER</key>
-	<string>your-twilio-phone-number</string>
+	<string>$(TWILIO_AUTH_TOKEN)</string>
+	<key>TWILIO_MESSAGE_SERVICE_SID</key>
+	<string>$(TWILIO_MESSAGE_SERVICE_SID)</string>
 </dict>
 </plist>
