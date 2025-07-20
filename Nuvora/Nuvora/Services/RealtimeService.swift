@@ -3,18 +3,19 @@ import Supabase
 import Combine
 
 /// Comprehensive real-time service for presence and room management
+@MainActor
 class RealtimeService: ObservableObject {
     static let shared = RealtimeService()
     
     @Published var isConnected = false
     @Published var connectionError: String?
-    @Published var activeRooms: [String: RealtimeChannel] = [:]
+    @Published var activeRooms: [String: RealtimeChannelV2] = [:]
     
     private var client: SupabaseClient? {
         SupabaseManager.shared.client
     }
     
-    private var presenceChannels: [String: RealtimeChannel] = [:]
+    private var presenceChannels: [String: RealtimeChannelV2] = [:]
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
@@ -26,7 +27,9 @@ class RealtimeService: ObservableObject {
         SupabaseManager.shared.$isInitialized
             .sink { [weak self] isInitialized in
                 if isInitialized {
-                    self?.connect()
+                    Task { @MainActor in
+                        await self?.connect()
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -34,48 +37,38 @@ class RealtimeService: ObservableObject {
     
     // MARK: - Connection Management
     
-    func connect() {
+    func connect() async {
         guard let client = client else {
             print("❌ Cannot connect: Supabase client not initialized")
             return
         }
         
-        Task {
-            do {
-                try await client.realtime.connect()
-                await MainActor.run {
-                    self.isConnected = true
-                    self.connectionError = nil
-                }
-                print("✅ Realtime connected")
-            } catch {
-                await MainActor.run {
-                    self.isConnected = false
-                    self.connectionError = error.localizedDescription
-                }
-                print("❌ Realtime connection failed: \(error)")
-            }
+        do {
+            try await client.realtimeV2.connect()
+            self.isConnected = true
+            self.connectionError = nil
+            print("✅ Realtime connected")
+        } catch {
+            self.isConnected = false
+            self.connectionError = error.localizedDescription
+            print("❌ Realtime connection failed: \(error)")
         }
     }
     
-    func disconnect() {
+    func disconnect() async {
         guard let client = client else { return }
         
-        Task {
-            await client.realtime.disconnect()
-            await MainActor.run {
-                self.isConnected = false
-                self.activeRooms.removeAll()
-                self.presenceChannels.removeAll()
-            }
-            print("👋 Realtime disconnected")
-        }
+        await client.realtimeV2.disconnect()
+        self.isConnected = false
+        self.activeRooms.removeAll()
+        self.presenceChannels.removeAll()
+        print("👋 Realtime disconnected")
     }
     
     // MARK: - Room Management
     
     /// Join a room with presence tracking
-    func joinRoom(_ roomId: String, userMood: RoomMood) async throws -> RealtimeChannel {
+    func joinRoom(_ roomId: String, userMood: RoomMood) async throws -> RealtimeChannelV2 {
         guard let client = client else {
             throw RealtimeError.clientNotInitialized
         }
@@ -84,42 +77,60 @@ class RealtimeService: ObservableObject {
         await leaveCurrentRooms()
         
         let channelName = "room:\(roomId)"
-        let channel = client.realtime.channel(channelName)
+        let channel = client.realtimeV2.channel(channelName)
         
         // Setup presence tracking
-        let presenceState: [String: Any] = [
-            "user_id": AuthService.shared.currentUser?.id ?? "anonymous",
-            "mood": userMood.rawValue,
-            "joined_at": ISO8601DateFormatter().string(from: Date())
-        ]
-        
-        // Subscribe to channel
-        await channel.subscribe()
-        
-        // Track presence
-        await channel.track(presenceState)
-        
-        // Store channel reference
-        await MainActor.run {
-            self.activeRooms[roomId] = channel
-            self.presenceChannels[roomId] = channel
+        struct PresenceState: Codable {
+            let userId: String
+            let mood: String
+            let joinedAt: String
         }
         
-        print("✅ Joined room: \(roomId) with mood: \(userMood.rawValue)")
-        return channel
+        let presenceState = PresenceState(
+            userId: AuthService.shared.currentUser?.id.uuidString ?? "anonymous",
+            mood: userMood.rawValue,
+            joinedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        
+        do {
+            // Subscribe to channel
+            let status = try await channel.subscribe()
+            guard status == .subscribed else {
+                throw RealtimeError.subscriptionFailed
+            }
+            
+            // Track presence
+            let trackStatus = try await channel.track(presenceState)
+            guard trackStatus == .ok else {
+                throw RealtimeError.subscriptionFailed
+            }
+            
+            // Store channel reference
+            self.activeRooms[roomId] = channel
+            self.presenceChannels[roomId] = channel
+            
+            print("✅ Joined room: \(roomId) with mood: \(userMood.rawValue)")
+            return channel
+            
+        } catch {
+            print("❌ Failed to join room: \(error)")
+            throw error
+        }
     }
     
     /// Leave a specific room
     func leaveRoom(_ roomId: String) async {
         guard let channel = activeRooms[roomId] else { return }
         
-        await channel.untrack()
-        await channel.unsubscribe()
-        
-        await MainActor.run {
-            self.activeRooms.removeValue(forKey: roomId)
-            self.presenceChannels.removeValue(forKey: roomId)
+        do {
+            _ = try await channel.untrack()
+            try await channel.unsubscribe()
+        } catch {
+            print("❌ Error leaving room \(roomId): \(error)")
         }
+        
+        self.activeRooms.removeValue(forKey: roomId)
+        self.presenceChannels.removeValue(forKey: roomId)
         
         print("👋 Left room: \(roomId)")
     }
@@ -140,59 +151,57 @@ class RealtimeService: ObservableObject {
             return
         }
         
-        channel.onPresenceSync { state in
-            var users: [String: RoomMood] = [:]
-            
-            for (userId, presences) in state {
-                if let presence = presences.first,
-                   let moodString = presence["mood"]?.stringValue,
-                   let mood = RoomMood(rawValue: moodString) {
-                    users[userId] = mood
-                }
-            }
-            
-            DispatchQueue.main.async {
+        // Handle presence sync (full state)
+        channel.onPresenceSync { [weak self] states in
+            Task { @MainActor in
+                let users = self?.parsePresenceStates(states) ?? [:]
                 onChange(users)
             }
         }
         
-        channel.onPresenceJoin { _, newPresences in
+        // Handle presence join
+        channel.onPresenceJoin { [weak self] newPresences in
             print("👋 User joined room: \(roomId)")
-            // Trigger sync to get updated state
-            let currentState = channel.presenceState()
-            var users: [String: RoomMood] = [:]
-            
-            for (userId, presences) in currentState {
-                if let presence = presences.first,
-                   let moodString = presence["mood"]?.stringValue,
-                   let mood = RoomMood(rawValue: moodString) {
-                    users[userId] = mood
+            Task { @MainActor in
+                // Get current state and notify
+                if let channel = self?.presenceChannels[roomId] {
+                    let currentState = channel.presenceState()
+                    let users = self?.parsePresenceStates(currentState) ?? [:]
+                    onChange(users)
                 }
-            }
-            
-            DispatchQueue.main.async {
-                onChange(users)
             }
         }
         
-        channel.onPresenceLeave { _, leftPresences in
+        // Handle presence leave
+        channel.onPresenceLeave { [weak self] leftPresences in
             print("👋 User left room: \(roomId)")
-            // Trigger sync to get updated state
-            let currentState = channel.presenceState()
-            var users: [String: RoomMood] = [:]
-            
-            for (userId, presences) in currentState {
-                if let presence = presences.first,
-                   let moodString = presence["mood"]?.stringValue,
-                   let mood = RoomMood(rawValue: moodString) {
-                    users[userId] = mood
+            Task { @MainActor in
+                // Get current state and notify
+                if let channel = self?.presenceChannels[roomId] {
+                    let currentState = channel.presenceState()
+                    let users = self?.parsePresenceStates(currentState) ?? [:]
+                    onChange(users)
                 }
             }
-            
-            DispatchQueue.main.async {
-                onChange(users)
+        }
+    }
+    
+    /// Parse presence states into user mood dictionary
+    private func parsePresenceStates(_ states: [RealtimeChannelV2.PresenceState]) -> [String: RoomMood] {
+        var users: [String: RoomMood] = [:]
+        
+        for state in states {
+            // Try to decode the presence payload
+            if let data = try? JSONSerialization.data(withJSONObject: state.payload),
+               let decoded = try? JSONDecoder().decode([String: String].self, from: data),
+               let userId = decoded["userId"],
+               let moodString = decoded["mood"],
+               let mood = RoomMood(rawValue: moodString) {
+                users[userId] = mood
             }
         }
+        
+        return users
     }
     
     /// Update user mood in current room
@@ -202,14 +211,24 @@ class RealtimeService: ObservableObject {
             return
         }
         
-        let presenceState: [String: Any] = [
-            "user_id": AuthService.shared.currentUser?.id ?? "anonymous",
-            "mood": mood.rawValue,
-            "updated_at": ISO8601DateFormatter().string(from: Date())
-        ]
+        struct PresenceState: Codable {
+            let userId: String
+            let mood: String
+            let updatedAt: String
+        }
         
-        await channel.track(presenceState)
-        print("✅ Updated mood to \(mood.rawValue) in room: \(roomId)")
+        let presenceState = PresenceState(
+            userId: AuthService.shared.currentUser?.id.uuidString ?? "anonymous",
+            mood: mood.rawValue,
+            updatedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        
+        do {
+            _ = try await channel.track(presenceState)
+            print("✅ Updated mood to \(mood.rawValue) in room: \(roomId)")
+        } catch {
+            print("❌ Failed to update mood: \(error)")
+        }
     }
     
     // MARK: - Room Events
@@ -221,9 +240,9 @@ class RealtimeService: ObservableObject {
             return
         }
         
-        channel.on(eventType) { message in
-            if let payload = message.payload as? [String: Any] {
-                DispatchQueue.main.async {
+        channel.onBroadcast(event: eventType) { message in
+            Task { @MainActor in
+                if let payload = message.payload as? [String: Any] {
                     onEvent(payload)
                 }
             }
@@ -237,8 +256,12 @@ class RealtimeService: ObservableObject {
             return
         }
         
-        await channel.send(eventType, payload: payload)
-        print("✅ Sent event '\(eventType)' to room: \(roomId)")
+        do {
+            try await channel.broadcast(event: eventType, message: payload)
+            print("✅ Sent event '\(eventType)' to room: \(roomId)")
+        } catch {
+            print("❌ Failed to send event: \(error)")
+        }
     }
 }
 
