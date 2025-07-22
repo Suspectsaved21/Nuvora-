@@ -30,7 +30,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A0FFFFFE294A1234567890AB /* Frameworks */ = {
+		A1000018294A1234567890AB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -43,12 +43,12 @@
 		A0FFFFF8294A1234567890AB = {
 			isa = PBXGroup;
 			children = (
-				A1000001294A1234567890AB /* Nuvora */,
-				A1000000294A1234567890AB /* Products */,
+				A1000019294A1234567890AB /* Nuvora */,
+				A100001A294A1234567890AB /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A1000000294A1234567890AB /* Products */ = {
+		A100001A294A1234567890AB /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				A0FFFFFF294A1234567890AB /* Nuvora.app */,
@@ -56,7 +56,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A1000001294A1234567890AB /* Nuvora */ = {
+		A1000019294A1234567890AB /* Nuvora */ = {
 			isa = PBXGroup;
 			children = (
 				A1000000294A1234567890AB /* NuvoraApp.swift */,
@@ -87,7 +87,7 @@
 			buildConfigurationList = A100000B294A1234567890AB /* Build configuration list for PBXNativeTarget "Nuvora" */;
 			buildPhases = (
 				A0FFFFFB294A1234567890AB /* Sources */,
-				A0FFFFFE294A1234567890AB /* Frameworks */,
+				A1000018294A1234567890AB /* Frameworks */,
 				A0FFFFFD294A1234567890AB /* Resources */,
 			);
 			buildRules = (
@@ -127,7 +127,7 @@
 			mainGroup = A0FFFFF8294A1234567890AB;
 			packageReferences = (
 			);
-			productRefGroup = A1000000294A1234567890AB /* Products */;
+			productRefGroup = A100001A294A1234567890AB /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -165,7 +165,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A1000009294A1234567890AB /* Debug */ = {
+		A1000017294A1234567890AB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -291,7 +291,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = ""Nuvora/Preview Content"";
+				DEVELOPMENT_ASSET_PATHS = "Nuvora/Preview Content";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nuvora needs camera access for video calls";
@@ -321,7 +321,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = ""Nuvora/Preview Content"";
+				DEVELOPMENT_ASSET_PATHS = "Nuvora/Preview Content";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nuvora needs camera access for video calls";
@@ -350,7 +350,7 @@
 		A0FFFFFC294A1234567890AB /* Build configuration list for PBXProject "Nuvora" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1000009294A1234567890AB /* Debug */,
+				A1000017294A1234567890AB /* Debug */,
 				A100000A294A1234567890AB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
